@@ -69,6 +69,45 @@ class SampleScalaCheckTest extends FunSuite
     check(property)
   }
 
+  test("test custom RDD sized generator") {
+
+    val humanGen =
+      RDDGenerator.genSizedRDD[List[Human]](sc) { size: Int =>
+        val adultsNumber = math.ceil(size * 0.8).toInt
+        val kidsNumber = size - adultsNumber
+
+        def genHuman(genAge: Gen[Int]): Gen[Human] = for {
+            name <- Arbitrary.arbitrary[String]
+            age <- genAge
+        } yield Human(name, age)
+
+        for {
+            kids <- Gen.listOfN(kidsNumber, genHuman(Gen.choose(0, 18)))
+            adults <- Gen.listOfN(adultsNumber, genHuman(Gen.choose(18, 130)))
+        } yield {
+          kids ++ adults
+        }
+      }
+
+    val rddGenerated = humanGen
+    val property =
+    forAll(rddGenerated.map(_.flatMap(identity))) {
+      rdd =>
+        val rddCount = rdd.count
+        val adults = rdd.filter(_.age >= 18).collect
+        val kids = rdd.filter(_.age < 18).collect
+        val adultsNumber = math.ceil(rdd.count * 0.8).toLong
+        val kidsNumber: Long = rddCount - adultsNumber
+
+        adults.size + kids.size == rdd.count &&
+          !kids.exists(_.age > 18) &&
+          !adults.exists(_.age < 18) &&
+          kidsNumber * 4 <= adultsNumber
+    }
+
+    check(property)
+  }
+
   test("assert rows' types like schema type") {
     val schema = StructType(
       List(StructField("name", StringType), StructField("age", IntegerType)))
