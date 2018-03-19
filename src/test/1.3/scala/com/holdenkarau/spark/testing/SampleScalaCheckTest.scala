@@ -70,13 +70,14 @@ class SampleScalaCheckTest extends FunSuite
   }
 
   test("test RDD sized generator (nodes)") {
-    val nodeGenerator = RDDGenerator.genSizedRDD[MyNode](sc) { size: Int =>
-      def genGraph(sz: Int): Gen[MyNode] = for {
+
+    val nodeGenerator = RDDGenerator.genSizedRDD[(Int, MyNode)](sc) { size: Int =>
+      def genGraph(sz: Int): Gen[(Int, MyNode)] = for {
           id <- Arbitrary.arbitrary[Int]
           size <- if (sz <= 0) Gen.const(0) else Gen.choose(0, sz)
           nodes <- Gen.listOfN(size, genGraph(sz / 2))
         } yield {
-        MyNode(id, nodes)
+        (size, MyNode(id, nodes.map(_._2)))
       }
       genGraph(size)
     }
@@ -84,7 +85,12 @@ class SampleScalaCheckTest extends FunSuite
     val property =
     forAll(nodeGenerator) {
       rdd =>
-        rdd.map(_.key).count == rdd.count
+        val count = rdd.count
+
+        val value = rdd.filter(_._1 > count)
+
+        (rdd.map(_._2.key).count == count) &&
+          value.take(1).isEmpty
     }
     check(property)
   }
