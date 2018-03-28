@@ -79,6 +79,7 @@ class SampleScalaCheckTest extends FunSuite
         } yield {
         (size, MyNode(id, nodes.map(_._2)))
       }
+      println("SIZE LAMBDA GENERATOR = " + size)
       genGraph(size)
     }
 
@@ -86,11 +87,13 @@ class SampleScalaCheckTest extends FunSuite
     forAll(nodeGenerator) {
       rdd =>
         val count = rdd.count
+        println("SIZE RDD = " + count)
 
-        val value = rdd.filter(_._1 > count)
 
-        (rdd.map(_._2.key).count == count) &&
-          value.take(1).isEmpty
+//        val value = rdd.filter(_._1 > count)
+
+        (rdd.map(_._2.key).count == count) //&&
+//          value.take(1).isEmpty
     }
     check(property)
   }
